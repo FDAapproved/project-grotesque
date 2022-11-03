@@ -16,6 +16,11 @@ Project Grotesque's end goals include
 - consolidation HD's of class hierarchy (no repetition),
 - more virtual functions for class-specific behaviors.
 # Project Progress
+Files on this table can have the following afixes:
+- `-`; not started,
+- `~`; in progress,
+- `X`; completed.
+Files that are currently unlisted are not yet started.
 ```
 ammo_12.zs   ~
 ammo_426.zs  ~
