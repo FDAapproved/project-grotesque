@@ -46,6 +46,13 @@ class HDPickup:CustomInventory
 	int overlaypriority;
 	property overlaypriority:overlaypriority;
 	
+	
+	//This is an array of item names created on an actor's initialization.
+	//If you have a sub-mod item that also uses a given ammo type,
+	//you can use an event handler to add that item to this array for that ammo type.
+	//The IsUsed function can, of course, take in any other circumstances you can write in.
+	array<string> itemsthatusethis;
+	
 	default
 	{
 		// Default inventory flags (undoes vanilla behaviors).
@@ -430,11 +437,7 @@ class HDPickup:CustomInventory
 	//parse what would normally be the amount string as a set of variables
 	virtual void loadoutconfigure(string input){}
 
-	//This is an array of item names created on an actor's initialization.
-	//If you have a sub-mod item that also uses a given ammo type,
-	//you can use an event handler to add that item to this array for that ammo type.
-	//The IsUsed function can, of course, take in any other circumstances you can write in.
-	array<string> itemsthatusethis;
+	// Itemsthatuse this functions. 
 	virtual void GetItemsThatUseThis(){}
 	virtual bool IsUsed(){return true;}
 
