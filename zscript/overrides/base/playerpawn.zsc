@@ -1,0 +1,169 @@
+// -----------------------------------------------------------------------------
+// Grabber portion of the playerpawn. Has a lot of redundant grabber class
+// checks, try to consolidate those into one set of bools.
+// -----------------------------------------------------------------------------
+extend class HDPlayerPawn
+{
+	// For 'grabbing' hd items.
+	void PickupGrabber(int putimes=-1)
+	{
+		// Runs code if grabbing hasn't started yet.
+		if(!hasgrabbed)
+		{
+			// what's being grabbed.
+			actor grabbed=null;
+			
+			// What's doing the grabbing.
+			hdpickerupper hdpu=null;
+			
+			// Thinker Iterator for finding a pickup.
+			// Only creates an actual picker upper if .master changes.
+			ThinkerIterator hdpuf=ThinkerIterator.Create("HDPickerUpper");
+			while(hdpu=HDPickerUpper(hdpuf.Next()))
+			{
+				if(hdpu.master==self)break;
+			}
+			// Creates a picker upper and assigns it's .master ptr. 
+			if(!hdpu||hdpu.master!=self)
+			{
+				hdpu=HDPickerUpper(spawn("HDPickerUpper",pos,ALLOW_REPLACE));
+				hdpu.master=self;
+			}
+
+			// Values used for aiming the picker upper hitbox.
+			double cp=cos(pitch+3);
+			vector3 pudir=1.8*(cp*cos(angle),cp*sin(angle),-sin(pitch+3));
+			vector3 pko=(
+				pos.xy,
+				pos.z+height*0.8
+			)+viewpos.offset;
+			
+			// Sets the picker upper's origin.
+			hdpu.setorigin(pko,false);
+			
+			// Sets loop controls for the loop below.
+			if(putimes<0)putimes=int(((pudir.z<0.1)?24:18)*heightmult);
+			
+			// uses putimes to set the stepheight of the picker upper.
+			hdpu.maxstepheight=0.9*putimes;
+			
+			// Actually tries to find pickups.
+			for(int i=0;i<putimes;i++){
+				hdpu.setorigin(hdpu.pos+pudir,false);
+				bool ncm=!hdpu.checkmove(hdpu.pos.xy,hd_dirtywindows?0:PCM_NOLINES);
+				
+				// Checks for blocking lines (includes windows).
+				if
+				(
+					ncm
+					&&!hdpu.blockingmobj
+					&&(
+						!!hdpu.blockingline
+						&&hdpu.blockingline.sidedef[0].gettexture(side.mid)==texman.checkfortexture("HDWINDOW",texman.type_any)
+					)
+				)
+				{
+					// Checks to see if the player is pressing use. 
+					if(
+						(player.cmd.buttons&BT_USE)
+						&&!(player.oldbuttons&BT_USE)
+					){
+						vel-=pudir*0.05;
+						muzzleclimb1.y-=0.05;
+						muzzleclimb2.y+=0.025;
+						muzzleclimb3.y+=0.015;
+						muzzleclimb4.y+=0.01;
+					}
+					pudir=(0,0,0);
+				}
+				// sets grabbing flags, conditionally stops you from
+				// hoovering up items. 
+				if(
+					ncm
+					&&!!hdpu.blockingmobj
+					&&abs(hdpu.pos.z-hdpu.blockingmobj.pos.z)<putimes
+				){
+					grabbed=hdpu.blockingmobj;
+
+					// 'don't hoover the big things'
+					// disables multipickup for large objects.
+					if(
+						HDWeapon(grabbed)
+						||HDMagAmmo(grabbed)
+					){
+						hasgrabbed=true;
+						grabbed.bdontfacetalker=false;
+					}
+				}
+			}
+
+			// Execute this if the object was grabbed (map triggers)
+			if(
+				inventory(grabbed)
+				||hdupk(grabbed)
+			){
+				//call the special right away before any other checks that risk skipping it
+				A_CallSpecial(
+					grabbed.special,grabbed.args[0],
+					grabbed.args[1],grabbed.args[2],
+					grabbed.args[3],grabbed.args[4]
+				);
+				grabbed.special=0;
+				grabbed.changetid(0);
+
+				// counts secrets you grab.
+				if(grabbed.bCountSecret){
+					GiveSecret(true,true);
+					grabbed.bCountSecret=false;
+				}
+			}
+
+			// executes with the code above,
+			// handles actually picking the object up. 
+			if(
+				grabbed
+				&&(
+					hdupk(grabbed)
+					||inventory(grabbed)
+				)
+			){
+				if(
+					grabbed is "hdupk"
+					||grabbed is "inventory"
+				){
+					if(
+						grabbed is "hdweapon"
+						||(grabbed is "hdpickup"&&!hdpickup(grabbed).bmultipickup)
+						||(grabbed is "hdupk"&&!hdupk(grabbed).bmultipickup)
+					){
+						hasgrabbed=true;
+					}
+					let hdpk=hdupk(grabbed);
+					if(hdpk){
+						hdpk.picktarget=self;
+						if(hdpk.findstate("grab",true)){
+							if(hd_debug)console.printf("Custom grab states are deprecated. Please use the OnGrab() function instead.");
+							grabbed.setstatelabel("grab");
+						}
+						if(!hdpk.OnGrab(self))return;
+					}else{
+						let hdpu=hdpickup(grabbed);
+						if(
+							hdpu
+							&&!hdpu.OnGrab(self)
+						)return;
+						let hdwp=hdweapon(grabbed);
+						if(
+							hdwp
+							&&!hdwp.OnGrab(self)
+						)return;
+					}
+
+					//final check for pickup process before spawning grabber
+					let hdpg=hdpickup(grabbed);
+					grabthinker.Grab(self,grabbed);
+				}
+			}
+		}
+	}
+}

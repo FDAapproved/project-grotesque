@@ -1,0 +1,1 @@
+#include "zscript/overrides/base/pickup/magazine/main.zsc"

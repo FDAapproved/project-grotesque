@@ -1,0 +1,172 @@
+// -----------------------------------------------------------------------------
+// "Fake" pickup that gives an amount of another pickup when grabbed.
+// -----------------------------------------------------------------------------
+// For some reason this ISNT a subclass of HDPickup. Makes the code messy...
+
+/*
+ Fake pickup for creating different actors that give the same item
+ hdupk.pickupsound:   pickup sound
+ hdupk.pickuptype:    default type of inventory item it replaces
+ hdupk.pickupmessage: self-explanatory
+ hdupk.maxunitamount: max # of pickuptype a single unit can store
+ hdupk.amount:        amount in this item, if it is a container
+*/
+class HDUPK:HDActor
+{
+	int HDUPKFlags;
+	flagdef MultiPickup:HDUPKFlags,0;
+
+	actor picktarget;
+
+	class<hdpickup> pickuptype;
+	property pickuptype:pickuptype;
+	
+	string pickupmessage;
+	property pickupmessage:pickupmessage;
+	
+	sound pickupsound;
+	property pickupsound:pickupsound;
+	
+	int maxunitamount;
+	property maxunitamount:maxunitamount;
+	
+	int amount;
+	property amount:amount;
+	
+	default
+	{
+		+solid
+		-hdupk.multipickup
+		height 8;radius 8;
+		hdupk.pickupsound "weapons/pocket";//"misc/i_pkup";
+		hdupk.pickupmessage "";
+		hdupk.pickuptype "none";
+		hdupk.maxunitamount -1;
+		hdupk.amount 1;
+	}
+	
+	// Only collides with picker uppers.
+	override bool cancollidewith(actor other,bool passive)
+	{
+		return HDPickerUpper(other);
+	}
+	
+	override void postbeginplay()
+	{
+		super.postbeginplay();
+
+		// Do nothing if maxamount is 0.
+		if(!maxunitamount)
+			return;
+		
+		// Set maxamount if it somehow is less than 0.
+		if(maxunitamount<0)
+			maxunitamount=abs(getdefaultbytype(getclass()).amount);
+		
+		// Spawn excess if amount is larger than maxamount.
+		while(amount>maxunitamount)
+		{
+			let a=hdupk(spawn(getclassname(),pos,ALLOW_REPLACE));
+			a.amount=maxunitamount;
+			amount-=maxunitamount;
+			a.vel=vel+(frandom(-1,1),frandom(-1,1),frandom(-1,1));
+		}
+		// Set amount to 1 if it's not greater than 1. 
+		if(!(amount>1))
+		{
+			amount=1;
+		}
+	}
+	
+	// Can be grabbed by anyone.
+	virtual bool OnGrab(actor grabber){return true;}
+	
+	// Actual give function.
+	virtual void A_HDUPKGive()
+	{
+		//it's not an item container
+		if(pickuptype=="none")
+		{
+			target=picktarget;
+			setstatelabel("give");
+			if(!bdestroyed)return;
+			picktarget.A_StartSound(pickupsound,5);
+			if(pickupmessage!="")HDPickup.LogPickupMessage(picktarget,pickupmessage);
+			return;
+		}
+
+		// if placing directly into backpack,
+		// Gets the backpack pointer and runs a bunch of hyper-specific math.
+		// Really should be a method of containers instead. 
+		if
+		(
+			picktarget.player
+			&&picktarget.player.readyweapon is "HDBackpack"
+		)
+		{
+			let bp=hdbackpack(picktarget.player.readyweapon);
+
+			let hdpk=(class<hdpickup>)(pickuptype);
+			double defunitbulk=getdefaultbytype(hdpk).bulk;
+			let hdpm=(class<hdmagammo>)(pickuptype);
+			if(hdpm)
+			{
+				let hdpmdef=getdefaultbytype(hdpm);
+				defunitbulk=max(defunitbulk,hdpmdef.magbulk+hdpmdef.roundbulk*hdpmdef.maxperunit);
+			}
+			int maxtake;
+			defunitbulk*=hdmath.getencumbrancemult();
+			if(!defunitbulk)maxtake=int.MAX;else maxtake=int((bp.Storage.MaxBulk-bp.Storage.TotalBulk)/defunitbulk);
+			int increase=min(maxtake,amount);
+			if(bp.CanGrabInsert(null,pickuptype,picktarget)
+				&&bp.Storage.AddAmount(pickuptype,increase,flags:BF_SELECT|BF_IGNORECAP)>0){
+			amount-=increase;
+			if(amount<1)destroy();
+			else setstatelabel("spawn");
+			return;
+			}
+		}
+
+		//check effective maxamount and take as appropriate
+		let mt=(class<hdmagammo>)(pickuptype);
+		int maxtake=min(amount,hdpickup.maxgive(
+			picktarget,pickuptype,
+			mt?getdefaultbytype(mt).maxperunit+getdefaultbytype(mt).roundbulk+getdefaultbytype(mt).magbulk
+			:getdefaultbytype(pickuptype).bulk
+		));
+		let hdp=hdplayerpawn(picktarget);
+		if(
+			maxtake<1
+			||heat.getamount(self)>50
+		){
+			//didn't pick any up
+			setstatelabel("spawn");
+			return;
+		}
+		picktarget.A_StartSound(pickupsound,5);
+		HDPickup.LogPickupMessage(picktarget,pickupmessage);
+		HDF.Give(picktarget,pickuptype,maxtake);
+		amount-=maxtake;
+		// Only picked some up.
+		if(amount>0)
+		{
+			setstatelabel("spawn");
+			return;
+		}
+		// Picked up all.
+		else if(pickuptype!="none")
+			destroy();
+	}
+	states
+	{
+	// like 'death' but not.
+	give:
+		---- A 0;
+		stop;
+	spawn:
+		CLIP A -1;
+	spawn2:
+		---- A -1;
+	}
+}
+

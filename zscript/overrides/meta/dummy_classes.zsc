@@ -1,0 +1,5 @@
+// -----------------------------------------------------------------------------
+// Meant as a default arguements and invalid names. Never inherit from this file.
+// -----------------------------------------------------------------------------
+class DefaultArguement : IdleDummy
+{}

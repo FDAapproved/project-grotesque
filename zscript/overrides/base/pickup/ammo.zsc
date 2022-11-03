@@ -1,0 +1,189 @@
+// -----------------------------------------------------------------------------
+// Custom ammo pickup classes. 
+// -----------------------------------------------------------------------------
+
+// Base class that magazines and loose ammo inherit from. 
+class HDAmmo:HDPickup
+{
+	default
+	{
+		-inventory.invbar
+		-hdpickup.droptranslation
+	}
+	
+	// Checks to see if this ammunition is used. Prematurely returns.
+	override bool IsUsed()
+	{
+		// Returns true automatically if there is no owner pointer.
+		if(!owner)return true;
+		
+		// Loops over itemsthatusethis and the player's inventory.
+		for(int i=0;i<itemsthatusethis.size();i++)
+		{
+			if(owner.countinv(itemsthatusethis[i]))return true;
+		}
+		
+		// Returns false if neither criteria is met. 
+		return false;
+	}
+}
+
+
+//------------------------------------------------------------------------------
+// Boxable meta-item, a large enough pile turns into a box or pack of ammo.
+//------------------------------------------------------------------------------
+class HDRoundAmmo:HDAmmo
+{
+	// case of this ammunition
+	class<actor> casing;
+	property casing:casing;
+
+	// boxed pickup of this ammunition
+	class<actor> bundle;
+	property bundle:bundle;
+
+	// packed sprite pointer
+	name spritepacked;
+	property spritepacked:spritepacked;
+
+	// single sprite pointer
+	name spritesingle;
+	property spritesingle:spritesingle;
+
+	// box amount
+	int amountbundle;
+	property amountbundle:amountbundle;
+
+	// pack amount
+	int amountpack;
+	property amountpack:amountpack;
+	
+	// unique string for multiple of an item.
+	// optional.
+	string packpickupmessage;
+	property packpickupmessage:packpickupmessage;
+
+	default
+	{
+		// Default flags.
+		+inventory.ignoreskill
+		+hdpickup.cheatnogive
+		+hdpickup.multipickup
+		
+		// Default actor pointers.
+		hdroundammo.casing  "DefaultArguement";
+		hdroundammo.bundle  "DefaultArguement";
+		
+		// Default sprite pointers.
+		hdroundammo.spritepacked "DefaultArguement"; 
+		hdroundammo.spritesingle "DefaultArguement";
+		
+		// Default amounts.
+		hdroundammo.amountbundle 0;
+		hdroundammo.amountpack   0; 
+		
+		hdroundammo.packpickupmessage "";
+	}
+	
+	// For custom pack names. 
+	virtual string getpackpickupmessage()
+	{
+		return packpickupmessage;
+	}
+	
+	// Supports different messages for packs.
+	override string pickupmessage()
+	{
+		string result;
+		if(amount>1)
+		{
+			result = getpackpickupmessage();
+			if(result != "")
+				return result;
+			
+		}
+		return super.pickupmessage();
+	}
+
+	
+	override void SplitPickup()
+	{
+		
+		// Call the boxable function if a bundle pointer exists.
+		// Other criteria are described below.
+		if
+		(
+			!(bundle == "DefaultArguement")       &&          // bundle exists.
+			!(spritepacked == "DefaultArguement") &&          // packed sprite exists.
+			!(spritesingle == "DefaultArguement")             // single icon exists.
+		)
+			SplitPickupBoxableRound(amountpack,amountbundle,bundle,spritesingle,spritepacked);
+		// Only call the normal function otherwise. 
+		else
+			super.SplitPickup();
+	}
+
+
+
+	// It may be worth making this a dynamic system,
+	// since theoretically a list of actors/sprites can be used to arbitrarily
+	// pack any hdpickup any number of times. 
+	void SplitPickupBoxableRound
+	(
+		int packnum,          // number to become a pack,
+		int boxnum,           // number to become a box,
+		class<actor> boxtype, // actor to spawn as box,
+		name packsprite,      // sprite to set as pack,
+		name singlesprite     // regular pickup sprite. 
+	)
+	{
+		//abort if death state - ejected shell uses this
+		if(curstate==resolvestate("death"))return;
+
+		// arguements of less than or equal to 0 (default) skip these behaviors.
+		if(boxnum<=0)
+			boxnum=amount+1;
+		if(packnum<=0)
+			packnum=amount+1;
+
+		// Spawns excess rounds either as a box with spares,
+		// or as a pack with sparses. Loops to pack everything.
+		while(amount>packnum)
+		{
+			// Spawn a box
+			if(amount>=boxnum)
+			{
+				actor aaa=spawn(boxtype,pos+(frandom(-1,1),frandom(-1,1),frandom(-1,1)));
+				aaa.vel=vel+(frandom(-0.6,0.6),frandom(-0.6,0.6),frandom(-0.6,0.6));
+				aaa.angle=angle;
+				amount-=boxnum;
+			}
+			// Spawn a pack
+			else
+			{
+				let sss=hdpickup(spawn(getclassname(),pos+(frandom(-1,1),frandom(-1,1),frandom(-1,1))));
+				sss.vel=vel+(frandom(-0.6,0.6),frandom(-0.6,0.6),frandom(-0.6,0.6));
+				sss.amount=packnum;
+				sss.angle=angle;
+				amount-=packnum;
+			}
+			// Destroys null piles. Placed here since this while loop 
+			// decrements amount.
+			if(amount<1)
+			{
+				destroy();
+				return;
+			}
+		}
+		// Sets pack sprite (only checks ==, we assume > was dealt with above).
+		if(amount==packnum)
+			sprite=getspriteindex(packsprite);
+		// calls the smaller splitpickup function. 
+		else
+			super.SplitPickup();
+		// Sets singular sprite.
+		if(amount==1)
+			sprite=getspriteindex(singlesprite);
+	}
+}
+
