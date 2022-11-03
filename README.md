@@ -20,6 +20,7 @@ Files on this table can have the following afixes:
 - `-`; not started,
 - `~`; in progress,
 - `X`; completed.
+
 Files that are currently unlisted are not yet started.
 ```
 ammo_12.zs   ~
