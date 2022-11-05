@@ -71,12 +71,12 @@ class HDRoundAmmo:HDAmmo
 		+hdpickup.multipickup
 		
 		// Default actor pointers.
-		hdroundammo.casing  "DefaultArguement";
-		hdroundammo.bundle  "DefaultArguement";
+		//hdroundammo.casing  "DefaultArguement";
+		//hdroundammo.bundle  "DefaultArguement";
 		
 		// Default sprite pointers.
-		hdroundammo.spritepacked "DefaultArguement"; 
-		hdroundammo.spritesingle "DefaultArguement";
+		//hdroundammo.spritepacked "DefaultArguement"; 
+		//hdroundammo.spritesingle "DefaultArguement";
 		
 		// Default amounts.
 		hdroundammo.amountbundle 0;
@@ -113,9 +113,9 @@ class HDRoundAmmo:HDAmmo
 		// Other criteria are described below.
 		if
 		(
-			!(bundle == "DefaultArguement")       &&          // bundle exists.
-			!(spritepacked == "DefaultArguement") &&          // packed sprite exists.
-			!(spritesingle == "DefaultArguement")             // single icon exists.
+			(bundle)       &&          // bundle exists.
+			(spritepacked) &&          // packed sprite exists.
+			(spritesingle)             // single icon exists.
 		)
 			SplitPickupBoxableRound(amountpack,amountbundle,bundle,spritesingle,spritepacked);
 		// Only call the normal function otherwise. 
