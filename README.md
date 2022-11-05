@@ -15,7 +15,7 @@ Project Grotesque's end goals include
 - codewalks and comments for every module,
 - consolidation HD's of class hierarchy (no repetition),
 - more virtual functions for class-specific behaviors.
-# Project Progress
+# Project Progress (to 1.0.0)
 Files on this table can have the following afixes:
 - `-`; not started,
 - `~`; in progress,
